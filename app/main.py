@@ -2,7 +2,7 @@ import socket  # noqa: F401
 
 
 def create_http_response(status, headers="", body=""):
-    return f"HTTP/1.1 {status}\r\n{headers}\r\n{body}"
+    return f"HTTP/1.1 {status}\r\n{headers}\r\n\r\n{body}"
 
 
 def parse_buffer(buff):
@@ -37,10 +37,20 @@ def main():
 
     parsed_request = parse_buffer(buff.decode())
 
-    if parsed_request.get("path") != "/":
-        connection.sendall(create_http_response("404 Not Found").encode())
-    else:
+    path = parsed_request.get("path", "/")
+    if path == "/":
         connection.sendall(create_http_response("200 OK").encode())
+
+    elif path.startswith("/echo/"):
+        path_split = path.rsplit("/", 1)
+        echo_val = path_split[1]
+        resp_headers = f"Content-Type: text/plain\r\nContent-Length: {len(echo_val)}"
+
+        connection.sendall(create_http_response("200 OK", resp_headers, echo_val).encode())
+        connection.close()
+    else:
+        connection.sendall(create_http_response("404 Not Found").encode())
+
 
 
 if __name__ == "__main__":
