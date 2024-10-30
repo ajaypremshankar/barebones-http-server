@@ -15,6 +15,14 @@ def create_http_response(status, headers=None, body=""):
 
     return f"HTTP/1.1 {status}\r\n{headers_str}\r\n{body}"
 
+def create_http_response_compressed(status, headers, body):
+    headers_str = ""
+    if headers is not None:
+        for k, v in headers.items():
+            headers_str += f"{k.strip()}:{str(v).strip()}\r\n"
+
+    return f"HTTP/1.1 {status}\r\n{headers_str}\r\n".encode() + body
+
 
 def parse_buffer(buff):
     split_buff = buff.split("\r\n\r\n", maxsplit=1)
@@ -36,8 +44,11 @@ def parse_buffer(buff):
     }
 
 
-def send_all(sock: socket.socket, status, headers=None, body=""):
-    sock.sendall(create_http_response(status, headers, body).encode())
+def send_all(sock: socket.socket, status, headers=None, body="", compressed = False):
+    if compressed:
+        sock.sendall(create_http_response_compressed(status, headers, body))
+    else:
+        sock.sendall(create_http_response(status, headers, body).encode())
     sock.close()
 
 
@@ -71,13 +82,14 @@ def handle_request(sock: socket.socket):
 
         request_encoding = get_supported_request_encoding(parsed_request.get("headers", {}))
 
-        if request_encoding == 'gzip':
+        compressed = request_encoding == 'gzip'
+        if compressed:
             content = zlib.compress(echo_val.encode())
             resp_headers['Content-Encoding'] = 'gzip'
 
         resp_headers["Content-length"] = len(content)
 
-        send_all(sock, "200 OK", resp_headers, content)
+        send_all(sock, "200 OK", resp_headers, content, compressed)
     elif method == 'GET' and path == '/user-agent':
         user_agent = parsed_request.get("headers").get("User-Agent")
 
