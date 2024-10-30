@@ -45,6 +45,7 @@ def parse_buffer(buff):
 
 
 def send_all(sock: socket.socket, status, headers=None, body="", compressed = False):
+    print(compressed, body)
     if compressed:
         sock.sendall(create_http_response_compressed(status, headers, body))
     else:
