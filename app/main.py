@@ -3,7 +3,6 @@ import os.path
 import socket
 import sys
 import threading
-import zlib
 
 base_path = None
 
@@ -126,8 +125,9 @@ def handle_request(sock: socket.socket):
 
         body = parsed_request.get("body", "")
 
-        f = open(full_path, "w")
-        f.write(body)
+        with open(full_path, "w") as f:
+            f.write(body)
+            f.close()
 
         send_all(sock, "201 Created")
 
