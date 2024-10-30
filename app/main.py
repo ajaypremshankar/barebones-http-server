@@ -1,3 +1,4 @@
+import gzip
 import os.path
 import socket
 import sys
@@ -85,7 +86,7 @@ def handle_request(sock: socket.socket):
 
         compressed = request_encoding == 'gzip'
         if compressed:
-            content = zlib.compress(echo_val.encode())
+            content = gzip.compress(echo_val.encode())
             resp_headers['Content-Encoding'] = 'gzip'
 
         resp_headers["Content-length"] = len(content)
