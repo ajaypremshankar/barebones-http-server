@@ -1,3 +1,4 @@
+import os.path
 import socket
 import sys
 import threading
@@ -34,7 +35,7 @@ def parse_buffer(buff):
     }
 
 
-def send_all(sock: socket.socket, status, headers = None, body = ""):
+def send_all(sock: socket.socket, status, headers=None, body=""):
     sock.sendall(create_http_response(status, headers, body).encode())
     sock.close()
 
@@ -68,13 +69,15 @@ def handle_request(sock: socket.socket):
     elif method == 'GET' and path.startswith('/files'):
 
         if base_path is None:
-            sock.sendall(create_http_response("404 Not Found").encode())
-            sock.close()
+            send_all(sock, "404 Not Found")
+
         path_split = path.rsplit("/", 1)
         file_path = path_split[1]
-        content = ""
+
+        full_path = os.path.join(str(base_path), str(file_path))
+
         try:
-            f = open(f"{base_path}{file_path}", "r")
+            f = open(full_path, "r")
             content = f.read()
             send_all(sock, "200 OK", {
                 "Content-Type": "application/octet-stream",
@@ -82,9 +85,21 @@ def handle_request(sock: socket.socket):
             }, content)
         except FileNotFoundError:
             send_all(sock, "404 Not Found")
+    elif method == 'POST' and path.startswith("/files"):
+        path_split = path.rsplit("/", 1)
+        file_path = path_split[1]
+        full_path = os.path.join(str(base_path), str(file_path))
+
+        body = parsed_request.get("body", "")
+
+        f = open(full_path, "w")
+        f.write(body)
+
+        send_all(sock, "201 Created")
 
     else:
         send_all(sock, "404 Not Found")
+
 
 def main():
     global base_path
