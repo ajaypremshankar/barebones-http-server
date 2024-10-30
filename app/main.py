@@ -1,4 +1,6 @@
 import socket  # noqa: F401
+import threading
+from threading import Thread
 
 
 def create_http_response(status, headers="", body=""):
@@ -24,37 +26,38 @@ def parse_buffer(buff):
         "body": split_buff[1]
     }
 
-
-def main():
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    accept = server_socket.accept()
-    connection = accept[0]
-
-    buff = connection.recv(1024)
+def handle_request(sock: socket.socket):
+    buff = sock.recv(1024)
 
     parsed_request = parse_buffer(buff.decode())
 
     path = parsed_request.get("path", "/")
     method = parsed_request.get("method")
     if path == "/":
-        connection.sendall(create_http_response("200 OK").encode())
+        sock.sendall(create_http_response("200 OK").encode())
 
     elif method == 'GET' and path.startswith("/echo/"):
         path_split = path.rsplit("/", 1)
         echo_val = path_split[1]
         resp_headers = f"Content-Type: text/plain\r\nContent-Length: {len(echo_val)}"
 
-        connection.sendall(create_http_response("200 OK", resp_headers, echo_val).encode())
-        connection.close()
+        sock.sendall(create_http_response("200 OK", resp_headers, echo_val).encode())
+        sock.close()
     elif method == 'GET' and path == '/user-agent':
         user_agent = parsed_request.get("headers").get("User-Agent")
         resp_headers = f"Content-Type: text/plain\r\nContent-Length: {len(user_agent)}"
-        connection.sendall(create_http_response("200 OK", resp_headers, user_agent).encode())
-        connection.close()
+        sock.sendall(create_http_response("200 OK", resp_headers, user_agent).encode())
+        sock.close()
     else:
-        connection.sendall(create_http_response("404 Not Found").encode())
+        sock.sendall(create_http_response("404 Not Found").encode())
 
+def main():
+    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
 
+    while True:
+        sock, response_addr = server_socket.accept()
+        t = threading.Thread(target=lambda: handle_request(sock))
+        t.start()
 
 if __name__ == "__main__":
     main()
