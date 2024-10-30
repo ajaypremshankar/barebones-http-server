@@ -11,19 +11,16 @@ def parse_buffer(buff):
 
     request_line = split_header[0].split(" ")
 
-    headers = []
+    headers = {}
 
     for h in split_header[1:]:
-        h_kv = h.split(":")
-        headers.append({
-            "key": h_kv[0],
-            "value": h_kv[1].strip()
-        })
+        h_kv = h.split(":", maxsplit=1)
+        headers[h_kv[0]] = h_kv[1].strip()
 
     return {
         "method": request_line[0],
         "path": request_line[1],
-        "headers,": headers,
+        "headers": headers,
         "body": split_buff[1]
     }
 
@@ -38,15 +35,21 @@ def main():
     parsed_request = parse_buffer(buff.decode())
 
     path = parsed_request.get("path", "/")
+    method = parsed_request.get("method")
     if path == "/":
         connection.sendall(create_http_response("200 OK").encode())
 
-    elif path.startswith("/echo/"):
+    elif method == 'GET' and path.startswith("/echo/"):
         path_split = path.rsplit("/", 1)
         echo_val = path_split[1]
         resp_headers = f"Content-Type: text/plain\r\nContent-Length: {len(echo_val)}"
 
         connection.sendall(create_http_response("200 OK", resp_headers, echo_val).encode())
+        connection.close()
+    elif method == 'GET' and path == '/user-agent':
+        user_agent = parsed_request.get("headers").get("User-Agent")
+        resp_headers = f"Content-Type: text/plain\r\nContent-Length: {len(user_agent)}"
+        connection.sendall(create_http_response("200 OK", resp_headers, user_agent).encode())
         connection.close()
     else:
         connection.sendall(create_http_response("404 Not Found").encode())
