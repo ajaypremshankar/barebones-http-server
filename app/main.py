@@ -2,6 +2,7 @@ import os.path
 import socket
 import sys
 import threading
+import zlib
 
 base_path = None
 
@@ -40,6 +41,12 @@ def send_all(sock: socket.socket, status, headers=None, body=""):
     sock.close()
 
 
+def get_request_encoding(headers: dict):
+    accept_encoding = headers.get("Accept-Encoding", "")
+
+    return 'gzip' if accept_encoding == 'gzip' else None
+
+
 def handle_request(sock: socket.socket):
     buff = sock.recv(1024)
 
@@ -47,6 +54,7 @@ def handle_request(sock: socket.socket):
 
     path = parsed_request.get("path", "/")
     method = parsed_request.get("method")
+
     if path == "/":
         sock.sendall(create_http_response("200 OK").encode())
 
@@ -54,10 +62,21 @@ def handle_request(sock: socket.socket):
         path_split = path.rsplit("/", 1)
         echo_val = path_split[1]
 
-        send_all(sock, "200 OK", {
-            "Content-Type": "text/plain",
-            "Content-length": len(echo_val)
-        }, echo_val)
+        resp_headers = {
+            "Content-Type": "text/plain"
+        }
+
+        content = echo_val
+
+        request_encoding = get_request_encoding(parsed_request.get("headers", {}))
+
+        if request_encoding == 'gzip':
+            content = zlib.compress(echo_val.encode())
+            resp_headers['Content-Encoding'] = 'gzip'
+
+        resp_headers["Content-length"] = len(content)
+
+        send_all(sock, "200 OK", resp_headers, content)
     elif method == 'GET' and path == '/user-agent':
         user_agent = parsed_request.get("headers").get("User-Agent")
 
