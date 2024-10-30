@@ -41,10 +41,11 @@ def send_all(sock: socket.socket, status, headers=None, body=""):
     sock.close()
 
 
-def get_request_encoding(headers: dict):
-    accept_encoding = headers.get("Accept-Encoding", "")
+def get_supported_request_encoding(headers: dict):
+    accept_encodings = headers.get("Accept-Encoding", "").split(",")
+    accept_encodings = [x.strip() for x in accept_encodings]
 
-    return 'gzip' if accept_encoding == 'gzip' else None
+    return 'gzip' if 'gzip' in accept_encodings else None
 
 
 def handle_request(sock: socket.socket):
@@ -68,7 +69,7 @@ def handle_request(sock: socket.socket):
 
         content = echo_val
 
-        request_encoding = get_request_encoding(parsed_request.get("headers", {}))
+        request_encoding = get_supported_request_encoding(parsed_request.get("headers", {}))
 
         if request_encoding == 'gzip':
             content = zlib.compress(echo_val.encode())
