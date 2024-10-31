@@ -1,6 +1,8 @@
 import threading
 import socket
 
+from lark.tools import options
+
 from app.handlers.request_handler import RequestHandler
 from app.models import ServerOptions
 from app.single_request import SingleRequest
@@ -13,11 +15,11 @@ class BarebonesServer:
     def start_server(self):
         while True:
             sock, response_addr = self.server_socket.accept()
-            t = threading.Thread(target=lambda: self.handle_request(sock))
+            t = threading.Thread(target=lambda: self.spawn_requests(sock))
             t.start()
 
-    def handle_request(self, sock: socket.socket):
+    def spawn_requests(self, sock: socket.socket):
         single_request = SingleRequest(sock)
-        single_request.receive_request()
+        single_request.handle_request()
 
-        RequestHandler.handle(self.options, single_request=single_request)
+        RequestHandler.handle(server_options=self.options, single_request=single_request)

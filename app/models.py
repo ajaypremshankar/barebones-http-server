@@ -13,4 +13,9 @@ class RequestPayload:
     headers: dict
     body: str
 
+@dataclass
+class ResponsePayload:
+    status: str
+    headers: dict
+    body: str
 
