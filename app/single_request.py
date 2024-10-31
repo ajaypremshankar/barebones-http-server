@@ -18,6 +18,18 @@ class SingleRequest:
         self._response = ResponsePayload(status, headers or {}, body or "")
         self._send_all()
 
+    def get_request_header(self, key, default = None):
+        return self._request.headers.get(key, default)
+
+    def get_response_header(self, key, default = None):
+        return self._response.headers.get(key, default)
+
+    def set_response_header(self, key, val):
+        self._response.headers[key] = val
+
+    def set_request_header(self, key, val):
+        self._request.headers[key] = val
+
     def get_request(self):
         return self._request
 
@@ -42,31 +54,31 @@ class SingleRequest:
 
     def _create_response(self):
 
-        compression_handler = CompressionHandler.get(self._request.headers.get("Accept-Encoding", ""))
+        compression_handler = CompressionHandler.get(self.get_request_header("Accept-Encoding", ""))
         is_compression_applicable = compression_handler is not None
 
         response_payload = self._response
 
-        body = response_payload.body
+        response_body = response_payload.body
+
         if is_compression_applicable:
-            body = compression_handler.compress(body)
-            response_payload.headers['Content-Encoding'] = compression_handler.name()
+            response_body = compression_handler.compress(response_body)
+            self.set_response_header('Content-Encoding', compression_handler.name())
 
         # add common headers
-        response_payload.headers["Content-length"] = len(body)
+        self.set_response_header("Content-length", len(response_body))
 
         if not response_payload.headers.get("Content-Type"):
-            response_payload.headers["Content-Type"] = "text/plain"
+            self.set_response_header("Content-Type", "text/plain")
 
         headers_str = ""
-        if response_payload.headers is not None:
-            for k, v in response_payload.headers.items():
-                headers_str += f"{k.strip()}: {str(v).strip()}\r\n"
+        for k, v in (self._response.headers or {}).items():
+            headers_str += f"{k.strip()}: {str(v).strip()}\r\n"
 
         if is_compression_applicable:
-            return f"HTTP/1.1 {response_payload.status}\r\n{headers_str}\r\n".encode() + body
+            return f"HTTP/1.1 {response_payload.status}\r\n{headers_str}\r\n".encode() + response_body
         else:
-            return f"HTTP/1.1 {response_payload.status}\r\n{headers_str}\r\n{body}".encode()
+            return f"HTTP/1.1 {response_payload.status}\r\n{headers_str}\r\n{response_body}".encode()
 
     def _send_all(self):
         self._socket.sendall(self._create_response())
